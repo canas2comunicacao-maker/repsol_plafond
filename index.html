@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Consulta de Plafond</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --text: #1c1f24;
+    --muted: #5d6470;
+    --line: #dfe2e7;
+    --accent: #e8590c;
+    --accent-text: #ffffff;
+    --ok-bg: #fff4ec;
+    --err: #b42318;
+    --err-bg: #fdecea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417;
+      --card: #1c1f24;
+      --text: #eceef1;
+      --muted: #a2a9b4;
+      --line: #2f343b;
+      --accent: #ff7a2e;
+      --accent-text: #1a0d04;
+      --ok-bg: #2a1d14;
+      --err: #ff8a80;
+      --err-bg: #3a1c1a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main {
+    max-width: 560px; margin: 0 auto;
+    padding: 24px max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left));
+  }
+  h1 { font-size: clamp(1.1rem, 4.6vw, 1.35rem); margin: 0 0 4px; overflow-wrap: anywhere; }
+  .vigor { color: var(--muted); margin: 0 0 20px; font-size: .95rem; }
+  .vigor strong { color: var(--text); }
+  form {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px;
+  }
+  label { font-weight: 600; }
+  .linha { display: flex; gap: 8px; }
+  input {
+    flex: 1; width: 0; min-width: 0; font: inherit; font-size: 1.4rem; letter-spacing: .08em;
+    text-transform: uppercase; text-align: center; padding: 10px 12px;
+    border: 2px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text);
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  button {
+    font: inherit; font-weight: 600; padding: 0 18px; min-height: 48px; border: 0; border-radius: 10px;
+    background: var(--accent); color: var(--accent-text); cursor: pointer;
+    touch-action: manipulation;
+  }
+  .ajuda { color: var(--muted); font-size: .85rem; margin: 0; }
+  #resultado { margin-top: 18px; }
+  .cartao {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+  }
+  .topo { background: var(--ok-bg); padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .matricula { font-size: 1.5rem; font-weight: 700; letter-spacing: .08em; }
+  .tipo { color: var(--muted); font-size: .9rem; }
+  .grelha { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .valor { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .valor:nth-child(odd) { border-right: 1px solid var(--line); }
+  .valor span { display: block; color: var(--muted); font-size: .82rem; }
+  .valor b { font-size: 1.35rem; }
+  .valor.destaque b { color: var(--accent); font-size: 1.6rem; }
+  .comb { padding: 14px 18px; }
+  .comb span { display: block; color: var(--muted); font-size: .82rem; }
+  .erro {
+    background: var(--err-bg); color: var(--err); border-radius: 12px; padding: 14px 18px;
+  }
+  .regras { color: var(--muted); font-size: .85rem; margin-top: 22px; }
+  /* Ecrãs estreitos: botão por baixo da caixa, a toda a largura. */
+  @media (max-width: 380px) {
+    main { padding-top: 16px; }
+    form { padding: 14px; }
+    .linha { flex-direction: column; }
+    input { width: 100%; }
+    .valor, .topo, .comb { padding: 12px 14px; }
+    .valor b { font-size: 1.2rem; }
+    .valor.destaque b { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cartões de Combustível CANAS/REPSOL – Limites por matrícula</h1>
+  <p class="vigor">Em vigor a partir de <strong>09/10/2026</strong></p>
+
+  <form id="form" autocomplete="off">
+    <label for="mat">Matrícula da viatura</label>
+    <div class="linha">
+      <input id="mat" name="mat" placeholder="00-AA-00" maxlength="8" inputmode="text"
+             autocapitalize="characters" autocorrect="off" enterkeyhint="search" spellcheck="false" required>
+      <button type="submit">Consultar</button>
+    </div>
+    <p class="ajuda">Pode escrever com ou sem hífenes (ex.: 00AA00).</p>
+  </form>
+
+  <div id="resultado" aria-live="polite"></div>
+
+  <p class="regras">Regras comuns: pagamento em loja não permitido · abastecimentos permitidos todos os dias · limites em número e em Euros.</p>
+</main>
+
+<script>
+const DADOS = {"p":[["Camião Leve/Pesado","Pesado Mercadorias (Gasóleo) Camião Grua",2500,500,1,500,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Mercadorias (Gasóleo) \u003c= 3 Lugares - Carrinha Caixa Aberta",1000,180,1,180,"Gasóleo, AdBlue"],["Camião Leve/Pesado","Pesado Mercadorias (Gasóleo) Camião 4X4",2500,500,1,500,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Mercadorias (Gasóleo) \u003c= 3 Lugares - Furgoneta",1000,100,1,100,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Mercadorias (Gasóleo) \u003c= 3 Lugares - Comercial de 2 Lugares",500,100,1,100,"Gasóleo, AdBlue"],["Camião Leve/Pesado","Pesado Mercadorias (Gasóleo) Trator",2500,500,1,500,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Mercadorias (Gasóleo) \u003c= 3 Lugares - Pick-Up 4X2",500,100,1,100,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Mercadorias (Gasóleo) \u003c= 3 Lugares - Barquinha",1500,180,1,180,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Passageiros (Gasóleo)",500,120,1,120,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Mercadorias (Gasóleo) \u003e 3 Lugares - Pick-Up 4X4",1500,180,1,180,"Gasóleo, AdBlue"],["Camião Leve/Pesado","Pesado Mercadorias (Gasóleo) Barquinha TET 4X4",2500,500,1,500,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Mercadorias (Gasóleo) - Viatura de Turismo",500,100,1,100,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Passageiros 4x4 (Gasóleo)",600,150,1,150,"Gasóleo, AdBlue"],["Furgão","Ligeiro Mercadorias (Gasóleo) \u003c= 3 Lugares - Furgão",1500,200,1,200,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Mercadorias (Gasóleo) \u003e 3 Lugares - Carrinha Caixa Aberta",1500,200,1,200,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Passageiros (Gasóleo) de 9 Lugares",1000,180,1,180,"Gasóleo, AdBlue"],["Camião Leve/Pesado","Pesado Mercadorias (Gasóleo) Camião",2500,500,1,500,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Passageiros (Gasóleo) - Administração",500,120,1,120,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Mercadorias (Gasóleo) \u003e 3 Lugares - Pick-Up 4X2",1000,180,1,180,"Gasóleo, AdBlue"],["Camião Leve/Pesado","Pesado Mercadorias (Gasóleo) Furgão 4x4",1000,200,1,200,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Mercadorias (Gasóleo) \u003c= 3 Lugares - Pick-Up 4X4",1500,180,1,180,"Gasóleo, AdBlue"],["Camião Leve/Pesado","Pesado Mercadorias (Gasóleo) Barquinha 4X4",2500,500,1,500,"Gasóleo, AdBlue"],["Camião Leve/Pesado","Pesado Mercadorias (Gasóleo) Barquinha",2500,500,1,500,"Gasóleo, AdBlue"],["Ligeiro Frota/Turismo","Ligeiro Passageiros (GPL e Gasolina)",500,100,1,100,"Gasolina, GPL Auto"],["Ligeiro Frota/Turismo","Ligeiro Passageiros (Híbrido Plug-in Gasolina (ME \u003e= 50Km e CO2/Km \u003c 50g))",500,100,1,100,"Gasolina"],["Ligeiro Frota/Turismo","Ligeiro Passageiros 4x4 (Gasolina)",600,150,1,150,"Gasolina"]],"m":{"b1d7fb41b586ab98940dacc4ff85da67ad4cc7449ffbc792a640dc8200b7071c":0,"26a8529862b69eebcc2cec1df10b37e014daada7bb96c3d0b8cd68bdfaee4868":0,"4c77de42850db9efd1bc2f39d3088e4f43a2715e04ad8fab558a6d6d86db3af8":1,"d32b02655493f8c98af6190e9068eb450ba50fd39fc536353534c10990aa8589":0,"a911c1c02458b11e094d33ce639998647cb7aeed084c15734d053bc024ba8d7e":2,"3f2e4137065fdf92e24bc9236a3a336edf10321c8a58455f778bcb2d08acc299":3,"ffd40c7f842556d154a0ec3dc209edc57cf961764d6f7e450fe347de9834d11e":4,"fb56817c66890218fadd6aba0f157d7783f002d8f5bcb08203afd3d910375472":4,"d50ded4559922ad7d51e7276cd83087a552db248e21c02dc36c30d3296ef2ae3":4,"f4580ddcbda452f69dfafb99b4bd0a3ad039eb2eb24dde573447d75b17768ca1":5,"4de6eda59410df09feea02ff8a707b22f5b37f34b00097b5a51c42fca8904dd9":0,"01e6278280529c06e2e6c1c9a22aa64af37186e99f20c000d228041f3198cbc5":0,"75072c5f5145c114bff2c26be4d719a5d3148a165d617b2dec89c4a253627298":0,"c14ca468bafbe944727a1a9475963b81caf4894690809ebcf664978499b284b8":6,"0b208f70401a3c5821975c0743c42790a87670ec8263fe4e1ab6ca72a46f52e9":7,"4d6c0c871bcbde09a6c5ded22dcbfea313b0aa43beba86d376d0f36df9ded3c0":7,"9af6551e7490ff59691a69745a71484e121a33a4b759a1487a155dc1e6b6abde":7,"17f05dbe7204b77346d39235414e97079e2d8e3696a66662362b53f5af4e9a57":0,"5246ccd1d4c6ebc1280995662f026395f4f259e3c3bc3d7543814bb7acb120f0":7,"0583d6ee62b2ede079ac23bdb338b3f7f682691cbeb7a548e8f526dad94be797":0,"ec23460cf7cb73a1b9cb69fa6510c7483c4d37f98d70edaec4adf3a251108804":8,"6d3e1afa150d8e6b3195478702923ece29eb890cb88c996aa56e7a175dc9d464":9,"1908cc12b48e2f2690fb90e046acd948a498a777e9037fb435626dbc72859b76":10,"2d11965473432847435c5d5002467b264d2992bb2d338a70c19c84b2c63c2f00":3,"00db4fae9e4e0df6a9a1c2e84a556fad44f5c2669fcf7d9299a361afd9616549":6,"7fbe05289a29920eef5d40b2c599c398e680a9a8b8760ad1a153fc5e706a2ba9":4,"4e02389ac8b1ef2ea6a71ce6a652b21e7d16ce7a6083b2c0a5a7dfc6c49d82c4":3,"2d9afc4d816742b5ae7822186c30671d85900f35d23aeb307b0e92fb02cab9ee":11,"bb7835536016bb0d3f10abd5ce856e5237b239bfa3d4f6a7da7448e71b700a20":3,"41eefe7e76f1b16247f5c6e2dbb38a3154005d99c96d31d32f6944bf759773c6":10,"fe43f943b94eb42d2a2f8ca9a39dc42dabb2dcd7ac6f77c33a7191ca485eff3d":4,"8d1e494666d747022f71f948982c8d807562e4aa1bd43c4b6037f7fa4f76489a":4,"224d399991e241e2c60322fddd1c1dacaf6d058b87f50d112ded388ec76d0127":3,"2c7fd81ee7c25ba41424c1a75bc5a7916c336e958f961a2559938772da97c2a2":12,"c920f86696ff65cd4bc58345bb08f5327dd3d0750dcaea4e4b42532c65856bdf":12,"dc83d5553d36a3353713e9e93e43753a22f85f9dd02e021cc29536e4f4fa7965":3,"e0934b258133db0bf3e5be5319704254e7f47d8252001d1d3612b633081cc592":8,"7cfbcf4eb4fa905a3cf469fb068c9bde11a8e418181e0d7158575f279cd5e045":4,"05f6074e856c4077631dbd0be6f9a2f89dd4d75ad314b1e494ac7407b8881e8d":8,"b563179e93f7b2a62283925e1ec310406f764da869fd2dd66585891df236a7b8":12,"7e6ea873bd5f1c0786d3248010290188910bf63d7876aec7e9120bc4fb29c244":3,"9a050ae9cfbe5edf5b80f7e4e974e31fd3ea39b0d2a2d64c5afc133533c41197":12,"9a3b690fdcc74bfe7607cbb06825a33ab8543aa6fdd02f9f125dfe7804294fe6":9,"6eb5b21acdb782cf67464bca53fe7d2fad3e8a5d89a08a8b1f8f9585ea681315":9,"4a18098fb042fe849c1aacc2649ed666d65ef6bd98810e282120f81df78c1377":9,"f1a62e40bace4f4ec60571c0f2624955328f67a93d126cafd5665259d1086ed0":9,"038cebfe499956fa371d86972d7ace37fa64e32db7eb70c04eb647f9d73aefff":9,"ae5151fb1fd324041ee161c9f3b294bff67cb3be1bd684d2de4f12feefda8a98":9,"958ebda1f9b1a81a4131fdfdeb71bf221ab75076debf52c1c5f8be0b7e2981a0":12,"bfab1d6c89585601686af07e3c89e0f1b38688dbf2cff64f65eb61f83ade41b7":13,"c9bc36bf390dca169a71b13365c824ca5cb1d50b2e21bb0cf98a5ba94b2e2518":1,"54707f7634d070b075164e8157591f55027710305e66e075befe7f4acb0fe6b0":3,"db3a50e6f4787db054bdfc1c48e7953497a5c9838160ca53c708c7480370de10":4,"57071151cf76dd8708e7592cca86b98fd0f5381204965c180612501a9fdcba51":0,"866d7860b520bfd9e2e160c35d82e3bc30813af333b8c92d7484211979b592a4":7,"6521141ab430b842a9a48b09bc510a7fe1f307ddea03796bcaa8305550a1a2a1":4,"270fd1292f00299f8756c9f611b71ead027d995e09827cbb19f4582f1df4d561":3,"81c0aaea4b4bd631c1c669dfbe9d31c897dd5bba30eac21eaadc75baebf8bbcb":3,"e8955a11d3d0f7ca7a2ff625854c14742300cd8fa84da2ceec6306fa2221ba4e":3,"b772a49f916dafaa6626c2fcb9a81c312eaa981de6de59b046164674a2e50e47":14,"ab2fb46956d145fbb62c7f1d6e6569ec228467d74a356a75c888025152cd190c":15,"e18fec354eeac2f100d6ab3014a77c52c5be80a9b160c81a62580fd9cf159a21":8,"d1ac8f417544e18f0b31e15ed326a1757d67c31fa9fb90230ce77b6d2056a607":8,"b73c81c2346d8c7249ec6cac87266da06e7c4a9956d3edf1076f52a645fefbae":4,"0221e326c4d6b978a2ba0f59e9a5b255cda025d3479230b5dba5b7c6f3d31995":3,"c5daafbfbc49c1cbcf106cea2529c2033d8b9f3b82c5348a79b16cd115468e9e":3,"3e4cd3b99e3f2c247cb5fdbe65bbbe00bc33ef308a9fdab5a9fe306b435a1eb2":3,"6ea07ece8c8c116fcc4866de635c58117ac065ef968446ac4c43570cc0ffe9eb":14,"ca6af3cdb320ee3d60b0a13eb057f8730a82bdd0ce76045930775ef8ac94f94b":12,"875f086913dc31ebd3e72706fd115ba997d25d3d6c1fd7e3ad45c5aaf2bd95ae":15,"37504e6bd53bf8a8e2f2df4eed901cc89ab6d7354e91bf8d80485abf097a2cdc":15,"af07053a3e788c7580e4805ce19341a03115947f504287ed589b95b067d76334":4,"e1d3014b3f2b9c1031fdf72aec3f8e4c6305606da7e06c4a2720237348444a3a":7,"951479ae4a53d0b7678ef86bdf2ac82d6fad15c1c20955e40ee59a5596952c94":16,"c9fc67496216aea553b849c05757ba3f600acf391cec5d64fbb1d7f907283323":9,"185c9bd839dc59bf70a8fbd326a9faa29a21174c03d44c0477de62b1f5235613":13,"882707ef2d61378ebc4c282b04224fb4fc4360a7fa1ce18210d6d1643f1b442b":9,"95e27862ba52aefe736a17522c4f1cd1fa689853b628e567801b14ac4747c5a4":3,"6428de3cb449f1fafe7978645dbb55e84129402cf7176139ec567fbdf28f6552":3,"0c23199cba529b7cc03cb7114339fc79a378a1fb95866cd68e80419b94894f7e":3,"f88cbcd564728861c666df8321c9044b9b5c3683d7ebf117fe730b3ad2b46a47":4,"612f81d665f30e3c4f36058635ee689996dc8dc54caef8dc6960e3192da6b2ab":4,"34ee0013b9891008e1cf1cf09a245ddff1895253db36e303587c2edeaa4ed3d0":4,"792ca5d23682609cc3c7243c6044cc28d0c8c53a9f1f1a49196414a4cde1d3c9":3,"b7d176a90072beda2c2521659550df51afa5dba8a26a54136303b0ff7b464ad1":17,"8edf4869628c67887f162d2e548b3caea3c9bcaab045cb8a34f1a48015d45455":17,"c356226a9b52b27e2719d36497d96913243ca0761db3e218ad9783db028f431a":4,"7d9138c90c095a309cf7f9c2d95388be6dbe2bedc563c8259806012cf464deda":14,"c8015a53ff87435b256bcfab59fda365ad82dd2a47127fb758c65a777733fea7":4,"9c714efd391bb036b98f9fc7ed10fa5dda54dffcbda097c89560a8a43850cab1":4,"02c7cde183ef914e01e88e78f13c3fb7e5f257ef8efd78c7b7e92adf8591ab04":18,"65a62847665c89a16e702acb62a420009aa20e8bfb7bb8e29b5f5d442f87a3f6":18,"19473a72f9fef8738a559e1e1795eb394e274c50a76ac4adfd1e074a0372baa8":7,"c978ec74dcb8a0896fb41d5601a0bb6ae870e5087466fb363993009885af8627":7,"e8ab2887fc391dabaa929cfdfb37abd7e6a74f98ad36e1837313e8739c75440f":7,"9ce0aa26c2dc500362a2a2d6dde0e1536daae12026f84cc861cebd1f6231049c":0,"d555e6b17501e9d6ef92efc11c509cca0ec469302f40e1e31f91b619ae918e72":12,"6163c1554669251cbfadcac237a24bd265b3743a723400538985dca0c0e5696b":14,"a2e4e9c23d4023bf881e5347042e1b8ab4faf478c4c193b871fe9adeac4fe8fe":3,"9892d20271ade3d989e2d63b370ebf67ad43c57723dded202088be9392d56a8f":3,"729089f72ed74047763acada68794a5915130694ebba0b0fb32e7a88323ae126":3,"4d4d63efbe41fbe52a8c93a28323042849eb204cc95ab455a050108eb84e4ab9":3,"485395ee0e6d44909e87bc19911c3b14b4752cbcecacc069cfedf9e96f5a6cac":3,"a35533500c32a8c5881ef2adadb541db5a3906c6bec6205cc73ad25a50d27b7d":1,"69ecdb6ad0babecaeadce4e9288efc1b0fab68969a544cbdb980b1bbeca8608b":1,"35748eaedd13966a4188524ca56844a25a824ef962e498df2f02715946649095":0,"09c81f3cb3a0dde525bd3cecf1d34d84e5eaaa8b51e9c2f5bd5e5d2762d027f4":16,"0cd9233885abd0c416b6efda13624d3f1b37d22dde7f40b441524f4937ad17e4":14,"18ac6c1f008320b474e74150d40bb09d704ee54032a71bf1afebe333017f0f65":4,"4e47b051c307fbd88efa59b7b3886dacd8850f4e3036bff3ccc995e92d3eba05":11,"a7369220605289e764ccf0ed921f95915c2ccfb3af07b06f0a4d5a046790fa7d":14,"0ff5a76a34a40c9f2657d7c42e814af7514626b18497e55115dcceb667353096":14,"04fb76f6ac5e9e77c0a85ef827c277687bbb547d97edffb2a23250aa72c8927a":9,"6d39e8f586a1e3386a78cf47de680abe54f5ce6102a48fb419ea825bcc8663e3":7,"8eeaaaeac82f77da601823b8a22f30289e1be34da038012f6f51f31e43f6bd76":4,"142db1d00a92c97970d913bb1c5b56dc611927993e70046dc13cedbe2292e464":19,"5209218f91ec489d168f29bbcc52cc4cba89ccfec995dbeb3b4035bb6893abd3":4,"fc2ce18aa76be84a2aba48ee07e6dad6e758773b1ca4513e310d0b948e2a32c7":4,"4d8b6d36f22868e4093ef8a29d1af2ebb57d25c048a1d65bb141393b7deaf007":16,"814508d3d301d141e8870d2143fd52db70ae65b74a4d21b23b07fd642d181843":16,"7cef048cfd0187a5d46d55b72f61fcce643efeb0b758f4417cb9a1b3b6c264cd":4,"203d11cccb82976663980b2a389fb496ee1e22d8506aadfaa7ef629f012a5e47":8,"a2c963c6c6ea7840a544d81eeeeec36ba207abf53ba80509a7b12fbc52580493":0,"af393ad0f338af6f48d3307e973afd3f10a29c29bec9708542544a7e129aa3ab":7,"f24ac113b654586269525b67bddfdffdade9f8f0e9c8fbe11fab661f57c164d3":3,"f0edc15e708874704876c6c30bb61077153bf9c265cf87a05395c36ffae93ede":3,"355cd5f519b3ee17f1812f01130cd424fb38ef3cf2f75c0a685c1dd82ded18fb":0,"8128af63ca0410f8a059fa9f5f45ef9d868810f72f2d70f21497a3d1d5344c9e":1,"0320bb7c89898fc84cabdf5367ef04b28e0feff86ee7d6ba12397b05f1d6fdf8":14,"8d886d5af3fd762e83fc2981f99c5cda8ead5bd5d1085feae5625dd8252a2fd9":9,"039ed4b69bc5097b9225aeb8b33ed2fbea55b9a7fc158f0a73c684a9f03db097":20,"39ca6885abb41633247ee2b3591a73b93ddad47e20a99360ebb472d80dd26b22":14,"d9c240f0bf70b544740247deee6de9c27b677d99ee2799804458bf3cdd0b5679":14,"19ae470fe5fa5232b075b90213d66d35ab121de2ceaf426659bf7310b568009f":14,"cac9059b7f838c9a6fa1063bae29d364770a87720739e7f0fbfb4d4bb943e06f":0,"d7cb5e35a4871cc4ffa547fa2828e6a6d5885d4d60d60b95e7946c1475538872":16,"1802803bc6a6a58e67bdb0f434236b84c34fb7e64d7dd7d64304a43c3cca6dd0":5,"c547943df7d99fa28c1df00392905b312cf971e03c366a75183d791840dcc986":14,"6305e2c27bc14d3bbd3097987f239cd912db92567312ded42aed8cd9a40eec66":7,"5b5364aa13b98f8e4447eec07ff34af2b17a17c53f5675fce4357ed045252af5":3,"c7bf2792ca1d8ac775ef3c9b139b2dadbd365b010753398c7c86eda641c6dd0d":3,"1a4791ac252a7cd4fd107a96b8949d5173736fce5a9859c19c4f5089bf9fba5e":3,"89bf69005750c0c7742ecb1415efb6d3061480eaab453c0d122152bd314bea10":14,"8473fe8e1fef7bef0d788102ebbfea98dc7e06fbeb5837537bc4e3a7f337a277":9,"4d2a43566c2b18d483cd4e4ebb6a7d8629ed1717ea7d89fc2d33aaec16c715c1":9,"2a95a4acbe09568f602c5191925966491b7db80fda436d75c6b69001866c8e8b":9,"b798805a4b3a4cbc546af0ba4bcb5970df6430e7221cfd63fff3b39c6c3d39be":14,"5d226ad9f6e501e4bfa62237b910972283514a96009b074c31747071677fb2f9":3,"cc2a130e2740bdd4299a6d3d81758d82896f387b43f19358b73cdf5d7c4eb6af":14,"3af87715bbc5b170e505d93f53f9e1f1575c7fd81781ac7bec9d5094835876ab":7,"5373f30460f29183578be97216623320a19d40eac353d9a8775f2230140452f1":14,"93505c98d377e2aad238cc01fd8294574c9d352f2f7eaa582c367bd0ebe8653f":8,"42a89fd99025a442c70dbcf7ca7a42771e3ba69287f003b96a2613d9c812bb66":8,"39af200759cbcdcdef88a9834bc5d37d9041272ede8ece09fd7a4f1d52f3f638":15,"c7e0690fe84bc55765d67a016073410f0edc80809cd01d14b1744f79c8e6aa27":15,"d665440cbc54056806cd57d461224c7502401d5310268daf1382cb512c50e946":15,"b94083abbc8f2f48e1c5518073cb2d5d4414d409c29726f09658666413329032":13,"5d1d99ad4b26ac0b068ad1407fda32bb426a8fa0a68406976b88d82eca85586b":13,"be090b994003ef9f185faff5e6d76f27b888f1b3359ac2bb2188b06892038d0f":3,"9c1be1d1eba0e0baf42dd9e479178815d206d3b6cead57d22a694ad1213181fa":3,"5f096f82d0a6eb54544747c8770b1f9da3bcdbfe97c87511edd41092231659f0":3,"ed77745ad95d2f340e61a6c5b62519feb70d85fc228f50b7ff85fdd504b6869b":1,"583cb21956db331c85fb2cf07eb66873eace9d70f97f3fad28518fc6a9790fe8":0,"f83bdc703bcc9ffa6df2921a0c44d0a82004d1a8f33c690f94bbfe94b6daac52":14,"a2161fb78be2d833042cb0dce54ed437a0485fa1329e0b555b21f275a59e7c32":14,"b0630b7ff86232136e49938197f1eed60908ce8e6891dddc400794bae3dc8d38":14,"8a94ed0e9103d94b1360f3ad4eb487fec0b360114c15f6d0538729c33972c0f7":14,"1c23dd239f5575f25fdefe5ab2fc39768cd545dcea2ce294af280e0a4a3b1455":1,"e5a7281e792745c69cc7de9496732122aeb8b4bb5961d04843d7a6051d5dfffd":14,"345ac509047a9628387d7e8b98013bedd9282f7e6ebbf92699877edb1a2a32db":8,"2d9514a0401fbe49e698ded909e82418e766f842c42e4af1fd02ac60a131a3fc":8,"15c6feac19985b8c68c54264008476453d455c916e17816a918df04a5264798a":8,"dc7b11c8fd27b7f7c4db9fb94309c9069bf7ed7d4130305ac60a50c75f5b6909":11,"63f9901b790e6cf2130e472d3dcb2c63cf1c57c6abdfd30d4e35befa96477aa0":16,"13c995c417e50532698e92390d8d54e6b64a8923e5d806b85c897dd27cd791a8":9,"a9b06c897f9d079a507a697090800cea5e6c30fa55e795f2440a9182c78a52e7":0,"bea26743603cf1fee854318cc11e20e34bd454c3fd9d0be64227d91892bbf1c0":11,"8956a19dce550d548008eaf5f6f1f65dba148cb439585612f11fafada2156826":0,"034dc791430df41c6f1f6461d29d793b755285e0a0a2df6f9ab98933c9824073":0,"ad8f26080f9f3b8ffd67ceeed160a2edf723e7990b2129b11260bc55b8bc3fc3":4,"3542a60cf89fa64ffe10d0d7bf1c8e7698de6ef4bcff60a277692111cc14db5e":4,"25dcbde863133bce32cdceb02b2eb1dbdf2779986b29f4a2fa6c024f43768fc9":1,"886832d9b14bcd51380d08e7678ce4ca858146ed16dfe6f51009097e3d21b87c":1,"9ea7e52288b9592456b5b1aaacb5992bb20823fb8aa7467156b385fabc136568":1,"4e18e369c43724cefbca7cd4bd0525c38d4fd19c16489cbb0b2b89ad912bd3e3":3,"723cdf6bb3cf9a7fb6e7f2350549c18122a0c549aa8f4cef66f04b1d4f8217ad":20,"c8ce1b90f265abe564b20a6186365a7a6119757cc907b87a0efa46a185c78fb1":1,"c8aa5ac02ac7c6cf71518eb7dfee32112523c4db974a5d507f1db8eb1e7c8538":14,"f09e1269b086629fffd1254053d6f3b04a45672840aee7b620b7e09756c8dfef":14,"03b1687a6c15f95c7097c6e173e187e09aa529b9944fc4dcd782095a9c7ac86d":9,"f65181a5420c35a4a7d3e2c2e17aad6d58ed96570d40abbcbc1aab7572b17fdc":9,"6a3dbd2201f5126a9339f009879397a97e46eab4cc05e521acb1ede53fe469b7":14,"d59acd7e9a593bdf97b9d2da86bd097604e3db368170d25acfe51e36e265d967":8,"787657b309ce992c29825faaa6e6cf4027c02686059daf50c65f74d44109895a":13,"f5df218afd5989b236f4b248e8ca6aeda6255dc5a85e360b72773d1ab8b0dac8":14,"3f946aff3b2abc7ae842e9fe9324c91e159d3b65c2c685039db968ff69b41799":0,"18e5fbaaa8843656c54836b766166d24b3edc6289c83aab9b10f8c8958c910cb":14,"16fe10115d09aa6412bd2642f31cbf051df12d38e4cb7627a3edbf23e81b8c83":8,"bfdeea2dee6055e73fe92b4b1ba89f8a493fa81f252a63daa898c97a1a6f7d63":1,"dfae16d6bbed3b7c59339ff1b5a3c2f73476e69798e7c375f9a7b72fb0051c63":7,"468bf01a547794747af8b632f84f30b2d9aa87c4e5efb30c2d77192d8d52cd51":7,"699de30646d456ef28c6645f565abacc2879b3b2a9d31b9e47177cebe5637cee":16,"29d86018ec7c7f162a011fdd0614121a23f6a7d29a7859cdd43fc35aa64f343c":8,"5aae37d0b1efad54ac0c328b076f885fdae08cef0c3a9b2c7dc984a9c47c735e":12,"7bc9be1ad3ff2df6522b3603e0409848c8fa01af3fd08daae642ec63e25a562f":12,"5ee2d2aab6a506d59ea8988d57ef683ae6b40766b6399a18094377f1728b6692":12,"6403ed07bb26fd2e483a98da973b07372e264175d64be1f2a6f6d87847d61448":12,"ae72d714cd7e8e2c044a461f23f89a53525e05dcdc1819ad1916ba23ff24f301":9,"fcb3784d684661bd24741ec813af24e9e75a23c6e8917d8891fc495c2ff9ac66":9,"08af1fea72cad0a5a584b7e96f29e45e2dd5377e5e070cbd4086e04a396f0b8d":9,"2c1dabf89a0224ecb460d115c3ba4821691df9bedfaf78b5370e6e86ee4a2672":9,"0acb9bdea4012421fa9b4db910d37b2af7a5c08cc8cf45567fd9b81b668b1f80":9,"45a45a7883fc93e9ab95de4f14e479a0fb2ae8fd55f16762e07930149ab72a6b":4,"77ba5f09dce191763ff828c3ad37ce4678bf202447e7b89bd2b77dfb708ad35a":4,"3cc59e67777f31ac2c519039b44d8590d62d64caa32924c81090fe66b981d7ce":3,"415aef71cd35a081c2dbe1803b13ca90d09b4644af382351b16a95944fabaaa8":8,"55fd24ec16f5f4bae3b61c96546aa729f2d8bb821046fcfecb2be679c2f800fd":8,"e0e1a40bd05ea65034033701d7f8d6d9009a6d69390da6b8fcae6ed958505f2a":8,"66749686aeee680952572056cbe2c8d7134a570055451ea334a05b5e3a03c08c":4,"c69e74d09119837edb143289dfb7f6a0273d3bb95673e4eedaaf129ca7068b1e":3,"8c9dbff42c495e9814323b339207148dae8525e9c01369d0ea2510077a04bf58":3,"db1a6af7f68a36bbeb4d95801b770ddd1e4567066dbdd18fd1d4273f523e87ad":3,"9295d2610fa7000c989e1641a36d984889e520548546d66a93cdb38bf62a0844":3,"6ff41f355befa17b44eb4794a4cdf40efe5fdb3577f8fa658ae3715eb15729ab":3,"f3b4c26f90929eea7cdb5ce1a0ca450da3f3a6673492391dbef59468a610a66b":3,"26adaab22423a9503edd6cdcdcdb2bbd21ea1a7d5ad115ce245b3116ca21130d":3,"f5e360590c3bc062a5e41a8075c9fcc3dd9931cef7ba8f3d9b756aa248fefa0b":3,"c2c2d6226e4d363eef562ad4a0df5732a866bdd8d084acd4d93fab39121241dd":3,"7e36de5ef8f8f8ee5cbd29bef79780be0b5d88a7647a525788b4f457546e2f13":3,"539eeb24a947e367dfd7f00ac0b086912885b7698b19c440d9a1423a39c613fc":15,"73ef5dfd98558598dcdc3f23d50c7722acff4fc36f8f01962d52142e9937643f":4,"77874d5fc2c572d1472493ab17d5ae5490a2d97f5d4dfdda020129f4bbc044e6":8,"21570309a36993c0f72d1fbfd811c93087b4844dd882865396e3d5faf0d68d20":8,"6bb2b45cc70727c04ef3d679db98f9cb28294968de4d64332e81036947c99c78":14,"c8bdd52eb685faee4a25c1baae2f24cc5a74e82e7447100b2c6395d989079991":13,"1b78208ed66dbd7f8d723bb71eb06cd5780a90a492bb2a8e53fd4d35c66cbb1f":13,"914a624204d4911d52b7e0b3ebd850cde0d8dfae9cf930d8b2adadc932164fd2":13,"32bd3f5b859cb8a75e17a089ec1825465862158a8dc76ea62dc1fcfe435064e7":16,"6b1023634bb8c2fa42138539c0388b4393f88a4300b94b5051fcb87daa36422d":21,"a62dc663c0c6012756680eed407d8ccc5d474a04e112aeef8b38e68b96420694":0,"c9a5d84f181f7ce77e7a50b1d0fdc5645bf11d769137615ffc260ce1323e5003":0,"480d91125b6ed0032ca652645d7a11f1143a383e97d242ca58b30dac71a38702":16,"848b75926c4156bb450038783752578d5d7783504b9cda30ed7bf1a27bb4d3ce":8,"fce471597271438e16c28103ad7bb8e1a02164fe34c1494142501cf1f9331248":15,"0c5baf7c9a918f1976d2af401bb23ecfd0ff26f0d21a3f12b28b3be44ce9eb91":15,"c8c9518998407fa6b299d070c9895df352e0004847a52719cbaf621c3a410e95":3,"7e3562f7ed2c474d5342fdf9c558abf180b90c90c5ca36eb613a2036a851d046":9,"151fe3d5fa0638000730fef2ebaa807d39e1c37e40a5d58da139001a91e7e2ae":9,"493fe0db5a7af6b9cca07648db5b52d9b9f6f34fda64cbc4ee890d8bfb8d95e0":9,"dc67db20df00fa437484f8d4c9f712f7b92b7af7d4d9c690f44afc1ec36c1a6a":9,"0f695366e0cdc6baaadd749b01a31beafcc522a1052ee0217d2db647388a1cd5":9,"1f21ee7e46a510fe49472dd73b1ecc6b37956eb840c65cc8bb2070d027b27048":9,"497598a2bcf0f1cf24f78789817d35d3163f02644945bb0c9f823cafed3aa9d5":14,"25dc240530de5c9f58c2265997b8d3e9eb87ac41fcd2ab79050f219fefc73a96":14,"8031b13b3b69c39d287b9b9e921d42daed17a91dd374e75e60e0360e83976055":14,"b15ec51e8d82a9c461184e4f3941b657556016eaa952f64eb75c4f793a8efd81":14,"71821b19e60f4a792b075baf05562235bfc7270575e4fc5e25520276f167d83f":14,"9a4fabf716eb3d5cc045a447ed9a2828f17bd02b291db8ced50d71b8a0a64210":14,"532f09d320de37ac3b446731c9a3185682352d73b9c9bda725ffec7e73714c38":8,"aff1e3f7067f34f17ce305cb2c01f9aaa1e32583008d53978a02116513c0eddd":8,"10d05a782e36391c24e07b5629bdd6f774e45a96ece684c407da677c7210a882":14,"826043d2da84903f67113c0a94bd13badc3536d673274106863754161e3e130a":15,"deb863d3928e4c27f8685735f161062dc62a30262422f76732b186c093b02cd1":8,"1fcf102589bc911ce4c9441c5cc03eef068cf0deda04569eec48152867c98b18":8,"7a88ff45d87a0219f5dce0cb9b9674f522de92d35b3c01ebb8a479f195da53bf":0,"ab3b146786cbb9c51609c22e6f906666d794189dd9e52e6564e9b1873af05c38":3,"1281e77749dc6745846b5583d76895bb858622de5598fd2562de0045bbb3d39c":9,"66a3bf5f29d6cd34ec1e8c0d20149ee3fc30c31d4a01302bcf557f0434d6f5fd":14,"6a60eb533b1e7af31da0fddcc99bb4c4e36a71a705ef61d819482fcf2aa9ed13":3,"ddb45953ca3dcb0e012db22b333b64bd9b929576f9bddd437943b2a312b7f20b":3,"5346244bac45e62089e1b04c76c1276e9cbe3d8bd3a7eab981e45ce22ce7cc73":3,"4c6025ee7b2550fa0777a1b013310eadd1eb32e41a08c85c4cd4884822d4294f":3,"fb05348851955cd5cc2418c0b6658793ee8685d69e4b179f04d81489a20e651d":3,"5d3d9907fd2f763db1f85787c593b9268a66fc0ebf49b90dd7738948c1d9c071":9,"84db4197ec9732e0ac2b06204cfd4701db13de0448148a0cd541629179ae1c9b":9,"38aa87af651048888dcd09dc6bc6d6d4274431effd04c737d27f6ddcff08fafc":9,"fb0773e46d11da977f1f11ae3f23d7d9eb637d3617be40a9ff145495c9902358":14,"6285ba37a2333f2a0beb126ff3518c4c3e61344ea8c463a9d3ccd567e4818e42":22,"5d94fa42e19e9c59f411fe3cb5d586113a1d7b83c9b3dc1330043ccd9e6d4ed1":8,"0bffdd6a3516c12013322a30d2c60473c8e84d5610ed736cdad13ce19312384a":15,"bbfad20ecdde80d110b4a378c306e967bcd862a1cdf22a25cb5e804427c33014":20,"7434cc72d399d7d2f6867b254010d3fdfaf80a14583b4f2ce517f9a7c2aebc5e":23,"b9f4fc384e81e6a069947303c74e3eb99807ea45270f2851569daae002457c82":23,"c32748c49332c0e6de8732fd93fc83fe5de702683938554ad450ae31a540a4f6":7,"94a52c841e17be3e2267dc505a681b22a49f5e6b0455c2e25722642d3da24788":7,"7195b15244770ed9c24fb59e67c9e19372363a50a7ce118de0778b144c73c4f8":7,"a53b49de8f670fa99622e489df75d77805a4f7dd36f5bc262aa08800905421ba":19,"29f86f5dcde21a46b955308dd573113886d98c4da922a0d0e30d9eee3926a5af":7,"f37411dae717d91d1ca99daac623c8692ec9f4483a32b5c031f5968ddd78c424":0,"1f3b27955dc3a627b84d074046d7dfa73b20fe5284be7aa49ad7409fb0c39d57":15,"ff8103bfac5ae819af2c78019cb06ca3ebce06890468d448a38f7b0734aa4873":3,"2a2474c63cdb7a7b5303110f22502541b57c25f2331fbcfa97f70cbcfa70543f":14,"a5d826d9b1e9824be6acfcc8e884dc878e1d43fc9390c39a77e7ef0f6ce11f5e":14,"a1979a7e26bd5369db6b37cd36dab73987f11774d1039c08094a5550df8ef3bd":7,"b0be7612cb7cf3329f5689e543712725b58e1df87cb68f1189cfb89c1c20fc08":0,"8b1ed00e931fd8aedb34702ed6ba712eaf1cd7402b5767ae4b6690a294f075c0":3,"9fbe504fecaa066d0f09119cccb007936ea7d5d6d2c70ad9e280a4cf28fbeef3":3,"e43fc5d3c748e20cae2d00a628b2417dd9bd2ac04c5a06d0abf6b6123a0c9dd6":3,"785243dbaa9e6fbb7e1cb723f0699ef3f77b83939f01f5d8a0adc4b11fae1b5b":3,"e5ae7f45540d10b8b94b29e84562e12d8f094c9338ef81197e84fd229380088f":3,"413d0a8c67a06644e215d4139bb286a971518e4e0b6e5b919f1d40080f28afb7":3,"13e03b8c7f2973dfb255f47cd7125e218f289756f779b63a42c9c83177937e5c":3,"82c4cc7265cb2ef1176eda7bc2e453bd990ca7281bc48c0f67eab6fdeb1f9b0f":3,"59d6f7db0a3e6e3d0248e49992afd29b359329650e7fd212def83f9d17d9cd6e":9,"951b732430fdd3214e9bb46cfed799b1732f569656fc80663f2c640daf6e39fe":9,"75e8c9d59b62f4a6c68e3a72c798e78052530dd3dc4ebce2350803c02166c033":7,"76f0ab81e883ebf0ead091a856277ad6ef59432b7e58f51785ef7333c8096465":20,"9560b2165b17f08f5c223135d0dcc86f540b9ee3f33c62f5d6a2717c9405cbfe":14,"2df6ee412635128fdce2c0d0cf48e88c0c3fc548471de069268ebd55cde612b6":9,"86e3e13eeacfc73fab477c338e6dfd44a97e2f75a83eec7f1f697fbf89deeb6d":4,"6af67495bb9032cff40d7b78ec7404055bce4bcda3d76f01e2148fa3de2a4c8f":15,"e7b2c8da778409e68234ee1540d268d28d48cfa37b42f0db3a810a495289a481":20,"d6f2ee88b19b1db7193ce3da33030cfa13e47831262541069595be5ca2d67c90":20,"1c9f46d483b3879eb3b3fe79bf030d366676d3eaaff67b87f2d7ace35f0221a9":20,"d705baaaae47a706d9fe64c6daf45baa8a17e241a8302fe589249cccbbeb79ba":7,"00891f5a1346ad112dc89296cfc27d2a62ed4bd983fbfedd38a18d7f3f4736c6":14,"5bbef5b8721ce70e1edf0dfee70667a72015768ec46525d3def08a5f021c19bf":3,"839991ae2cde40ce1bf596201fc4dbd2ca2248241b7c678df8c5484ba278b5a1":8,"de072774d8a2e0c4163fe40e45746897d14c32c4490d57074e988409bf1e1c99":24,"a0a5905dfb5032ee339d834c5b3f58a50bdcb71c23a45973ce9a808d7bef8aac":3,"a8958d95043bfe56b7b475146f4d4382ee97b78ce6565728ca0f1a492ed4362a":3,"44e2fa4b6e5b44cf28dab33ca05fbbcfb322293c317d39bfbc735030cc9cd776":13,"3a1ca77507a85fd499de81dc80145436397acd082f3b7755d01eb24c413d997a":8,"07a7af5cc4f2dd74e792925e1a41eab092955c8299c7df5a16172242f9797885":8,"893ab9bffb4cdd246230f0cc9d75630044c29b80ec7df9f58fb86191e4bd4704":8,"b03530d30546a4f2242a3f49bb1a335bfbeefdc90f548802fa1f9c569863cd71":8,"78364e0940f667b4a65f62bdccc05076feef80e8ac53c383b41b36933398d861":8,"7f56685b85bcde69e76634a3eb0aa73c04c069ae87b7e1e2a77df2fcb7d4aa01":17,"e9f09e8996fd3e4d961981b88243f7c54c5b80414b99ef361aec653d93463714":3,"ca24ba07a2af0f466abcde8a370adbe4f917d57f1dbe0be63b1b5c93dd2ec203":0,"40d7eddd5d17bd7eb2ccada132684de7f5f1b0d427004ecf16f8fb3640520f8f":17,"dc09cdef0a63f93158024f1e6812badb17b950fc259f27ee65eff0b0f3104890":8,"599fd8c4069a5a9c67588a8c8cc371754e51e16720333a1e68a4d7e8a63cae68":8,"dfb5c4056dfb1f2750935437aa73c31b0d632664f92271f3b6aa8cf625f487da":8,"eb6be616834fa3895d9b3015d3c69ef216db27e9e3f529b72f1c58d10e58f484":8,"57568f308f3be5c3efc6eebb03d4aca4cfb20242e9e0a955ddfe347f96f61e97":8,"1043c5c5cf41c62df248e1961bbd31ec57c3204d32ed5f6202a4a94568e32fd4":15,"68c1fdddbd7f0d4d7b3d2b1b44133c693eaa611acfc68a5a47d343273285201a":4,"49172a9ca2244cd15782e868be77718a4284c543d961eca17fb29af13c1600b1":4,"642ba96578fc698de38353e3290316b531329944181bd1487233e42b71cf5fac":4,"52e0bbc65e58fa9946c96301a40b91c7859bec12a91d4b20c762feaa810edf67":3,"3b345bf09e801f12b7eacca106e84770ebe0db7fa53bba8988aeb078b9d19e47":14,"66584bec5c601e9305d2d9ff5e832e7618dd40cfde0ce2a7d6204295022c6ddc":14,"39387d0fe283e2c0ac979c85daa3b89c16fb2cfac500c1b0d4c94b9368349acd":14,"9d06c3f9b5d7a6dc3be7133b8f1a1cae4cb0686df64bd019c844fb2850d54ca3":14,"37d83263c619d51b0c3aec1ed43d3ebe2e98557ddcb0ef64d74543d1a336abba":8,"678b1ee55d9c1e0d89f204cc830f39215dd4de9ba35b2d7d158b132143164003":9,"44b680c06f212ab10060e5aad79435c9365c12585e11e7e792339cb2dfd6331a":3,"dc7f9015a21d387a918a0f0ce9eae7fe72f05426bdce089d774bd42872edef4f":3,"f0c6696f16c4d8ff95191a3dfd118daf5a6decda962db216231f8b94ab65b4fb":16,"d6c92ec434811750ce967961da98e34d5f46aca8c0dda2ce33296d203f1d6e01":16,"cb1935655498641cbc0d34ed31684b4ee0e214d68220946c62f54a32d2cdbf44":16,"586f67db09e40f346b4149e7a253ceacafacf39e9af58b0cf00751267892d492":16,"ad2d9f2aa02a3ed12c13b53faacc5fecd579c05ddc1443bdbec686036101ab5e":16,"a34f5ca3ca2abe06c2359b972c2f8343d8e6d0163a222079c9a10c47d78cc6ea":0,"034651d908afa807cf518678b2711b60336dcdc3db776a6f097ffa44d71ad20d":3,"278481ea86896b6f3f301871167682c6a380d224a04781397aec2bbfd6fc2b59":3,"60ac77e30f432d49a04ac7d71d05c6de43d604023f6ca44d13fc390e8e6b76d8":3,"8c7b0c8a83981fec99a586bd67bbc028633f119a7757dc43384b1350a9820380":3,"54b6116dc48f7d74e99068821da5f0f53f32906a54a6b632c716d3a472381d7d":3,"5a2a8f92fd6fe3a77ca604a0297fabc0fa8a92bb59ffa194277f931ab09258e0":1,"c392e1445832e6192252f9caea22064de72780e27c184b0b555f0b901480e895":14,"e2013e5fa3994dbafde9a5cd03d5ab29cfeeef069e83f667ab04e76d10c7eb31":13,"7b1e1438c657f10039800c56069c9f400baf495c94dee625d76edfbe81d72e00":13,"9849f74a20ca6ae75da0f3b1752f710cd63d41d54a4dca50151ebf6325b01f15":9,"8999887a6776472364b17ad5a34553b0ac36b16a53684cd85e1d863853a019f5":9,"799f63831ad312a1e13270456b2866394499afd19543eefef19546e137c96bf4":16,"943550eb0a8d30fcd595512b9d08c0a43dd5477f8abcd447c2360463a479a2f0":16,"6bf02f446f3ba0da8eacf9548695d694b1003281f5a003c86eef8e9f4017b561":16,"b920f8b4e9da2cbfc02d1074980ac84cdfb06c9c154d8dc8bc36f7bad5dd2947":0,"b135c133f6bdd095c77e69d2d2ab67535e52f7c11fb3955b1b57397295fdcfdc":0,"5568733087438c1cfd3f9423347422209340216fb5282f9c6d92554491737f9d":0,"8035be44710db4c08b2d82bc92c411f13740574ead4babab2d48f7b21c6f40c5":0,"ab9af5b45280245bd16093b26ba82a4a7c5b04a0ac049ed6dfdcec2c28fb2298":2,"6a8d7a1da1fb2c2a2b4bd3eaa0c0834abae1a5f57f8d5228745e46dac5dc6fbc":3,"66f2743ce71c041fa44521271e0ef1c17cf1d715a56bfe36ef443811144e7fd7":8,"959999545f23a8bb662dc11e7e82cbda40ea6c973174084a3ea23634d2425831":8,"889b8c4886b5ea54586342bca8b1778de73f6d51b465e1e8ed178a25a998abc1":8,"458fe47ea7a4bf48c83c585beeeb7ee5a4a100d646ddd5919f2f3c8f56a23483":14,"96963d6915e2419ae92792ff13fdd4c94efb4a7bdf81375856104a07b4d9feb8":8,"10545466ab359196a5b70d84ff373c6c8c3ef0ee897e550c88c7e01ebdae50a8":8,"81dfc2b89f02f05b2b0946c75c373d12f72b80f9a39f4d998cbe41d622164a5f":16,"ca98dc2dc59d87ab0c2c6fc38c62654325c37ff8646162552be64e993d839c7e":14,"42b629c933764ea97106d34a57fbb12c60fbe19e211337adab4a697c267fcb68":14,"a7114b47e5a06e05244fce2e7bdfe5aa21c4c7925133bd1ec25ac7a16a296661":23,"ac6e7ceaed08e408bd5d3ba6efc119a7a56d23dfa47231fa3932a3015ef5ef2f":23,"b46c7b451b81eb65951259ec2837304f22f1375b51ad8514aea52610adb2f50a":23,"8fee8bd7b0fb8089c744ab09d9c7a6fc851ff419c3fd8fa32ba4589db2921dd2":9,"ce7177334bd9e575a268ea652ada697df032b63359a8a9d06ce6320099da1460":25,"1b223153ee0779caafed3b0b3b2c1e98470d11135c0b0b6ecc1758f725d64502":20,"bcde74ccac9e48c3ac39a08c83bd4ad86a7c6f993fa2f55d13fbaed341b28629":9,"ef9a67955b1ca3cd0d1134b0e43192ee7b5da73ec54301267123fd07edc6912a":9,"961c98d60220f4d04625723531f7c1c75cd10bfb2338a686d6372bc7ae3a2e32":9,"9895ddfaabb068bf83be325c037a1a4090254bca02515e3e755254fb81fc99d2":9,"df8d841f2adf94e098b2435787750d107899b50380c938422a484628f48e7a7f":9,"1b4982151f849d7fbe0fb9c15d2fd8284e546449e15e64a9c976139fbf69036d":9,"8ef3c846b439e100d43f0b97dc64ea234446936d87d93dfd59c5c318913e4442":20,"250f4093433dfa3170f7b55afadf545200a1249e3717da823b224953def6d6d1":20,"f9b973146c68b330b85e37d34673fd14647f600822786f7bf79f71ec9f37357b":20,"f934e0518df00c30c31eb1a8aeb6b7840292119fb41d8385c83432300af83616":20,"2cd983df11168469c450d73336ab1dc17754874531f1a9486a0216483a4f1af6":17,"355126faa577f3495d5c36ff2a3df120d2d9215b7b63fbf85336decf0048bd42":7,"1c5704523a3cdd8ab4a560ad495f9012a92ddb1da6b3494cbdac3124c081001b":3,"126050ca62c5a872b80e886d450cbb453aecc593568a864eb5193fbbf5c13b5e":0,"673aae09330804064d44b9c2dd7d7ecebfd34c290a1004aa85430efae5f96d42":7,"1d758807e9f2240cb6b77206771719ea49e4cb5a0d84fbb305281704af8866ad":3,"90c31bf580c7d4496ddf545d0754bcd521e37412c71170811e13da38bb5d81ec":1}};
+
+// SHA-256 em JavaScript puro (funciona também fora de HTTPS). Entrada: texto ASCII.
+function sha256(ascii) {
+  const rr = (v, n) => (v >>> n) | (v << (32 - n));
+  const maxWord = 2 ** 32, H = [], K = [], comp = {};
+  for (let c = 2, n = 0; n < 64; c++) {
+    if (!comp[c]) {
+      for (let i = 0; i < 313; i += c) comp[i] = c;
+      H[n] = (c ** 0.5 * maxWord) | 0;
+      K[n++] = (c ** (1 / 3) * maxWord) | 0;
+    }
+  }
+  const bitLen = ascii.length * 8;
+  ascii += "\x80";
+  while (ascii.length % 64 - 56) ascii += "\x00";
+  const words = [];
+  for (let i = 0; i < ascii.length; i++) words[i >> 2] |= ascii.charCodeAt(i) << ((3 - i) % 4) * 8;
+  words.push((bitLen / maxWord) | 0, bitLen);
+  let hash = H.slice(0, 8);
+  for (let j = 0; j < words.length;) {
+    const w = words.slice(j, j += 16), old = hash;
+    hash = hash.slice(0, 8);
+    for (let i = 0; i < 64; i++) {
+      const w15 = w[i - 15], w2 = w[i - 2], a = hash[0], e = hash[4];
+      const t1 = hash[7] + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + ((e & hash[5]) ^ (~e & hash[6])) + K[i]
+        + (w[i] = i < 16 ? w[i] : (w[i - 16] + (rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3)) + w[i - 7]
+          + (rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10))) | 0);
+      const t2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(t1 + t2) | 0].concat(hash);
+      hash[4] = (hash[4] + t1) | 0;
+    }
+    for (let i = 0; i < 8; i++) hash[i] = (hash[i] + old[i]) | 0;
+  }
+  return hash.slice(0, 8).map(h => (h >>> 0).toString(16).padStart(8, "0")).join("");
+}
+
+const euros = v => new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR",
+  maximumFractionDigits: Number.isInteger(v) ? 0 : 2 }).format(v);
+const normalizar = s => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+const formatar = s => s.match(/.{1,2}/g)?.join("-") ?? "";
+
+const input = document.getElementById("mat");
+const resultado = document.getElementById("resultado");
+
+function el(tag, cls, texto) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (texto !== undefined) e.textContent = texto;
+  return e;
+}
+
+function valor(rotulo, texto, destaque) {
+  const d = el("div", destaque ? "valor destaque" : "valor");
+  d.append(el("span", "", rotulo), el("b", "", texto));
+  return d;
+}
+
+function mostrar(mat) {
+  resultado.replaceChildren();
+  if (mat.length !== 6) {
+    resultado.append(el("div", "erro", "A matrícula deve ter 6 letras/números (ex.: 00-AA-00)."));
+    return;
+  }
+  const i = DADOS.m[sha256(mat)];
+  if (i === undefined) {
+    resultado.append(el("div", "erro",
+      "Matrícula " + formatar(mat) + " não encontrada. Confirme a matrícula ou contacte a gestão de frota."));
+    return;
+  }
+  const [categoria, tipo, mensal, diario, nDia, porAbast, combustiveis] = DADOS.p[i];
+  const cartao = el("div", "cartao");
+  const topo = el("div", "topo");
+  topo.append(el("div", "matricula", formatar(mat)), el("div", "tipo", categoria + " · " + tipo));
+  const grelha = el("div", "grelha");
+  grelha.append(
+    valor("Limite mensal", euros(mensal), true),
+    valor("Limite diário", euros(diario), true),
+    valor("Abastecimentos por dia", String(nDia)),
+    valor("Limite por abastecimento", euros(porAbast)),
+  );
+  const comb = el("div", "comb");
+  comb.append(el("span", "", "Combustíveis permitidos"), el("b", "", combustiveis));
+  cartao.append(topo, grelha, comb);
+  resultado.append(cartao);
+}
+
+input.addEventListener("input", () => {
+  const n = normalizar(input.value).slice(0, 6);
+  input.value = formatar(n);
+});
+
+document.getElementById("form").addEventListener("submit", ev => {
+  ev.preventDefault();
+  mostrar(normalizar(input.value));
+  input.blur(); // fecha o teclado do telemóvel para mostrar o resultado
+  resultado.scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+</script>
+</body>
+</html>
